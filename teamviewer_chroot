@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# please set the variable CHROOT to the chroot path
+# where teamviewer should be run. You can set the
+# variable in ~/.teamviewer_chroot if you want.
+#
+[ -e ~/.teamviewer_chroot ] && ~/.teamviewer_chroot
+
+cp ~/.Xauthority "$CHROOT/home/$USER"
+sudo mount --rbind --make-slave /dev "$CHROOT/dev"
+
+sudo mount -t tmpfs tmpfs "$CHROOT/run"
+mkdir "$CHROOT/run/lock" "$CHROOT/run/shm"
+sudo mount -t tmpfs tmpfs "$CHROOT/run/lock"
+sudo mount -t tmpfs tmpfs "$CHROOT/run/shm"
+
+# stuff for pulse audio
+[ ! -e "$CHROOT/home/$USER/.pulse" ] && mkdir "$CHROOT/home/$USER/.pulse"
+sudo mount --rbind --make-rslave /home/$USER/.pulse "$CHROOT/home/$USER/.pulse"
+sudo mount --rbind --make-rslave /var/lib/dbus "$CHROOT/var/lib/dbus"
+sudo cp -a ~/.pulse-cookie "$CHROOT/home/$USER/.pulse-cookie"
+sudo mount --rbind --make-rslave /tmp "$CHROOT/tmp"
+sudo mkdir -p "$CHROOT/run/user/$UID"
+sudo mount --rbind --make-rslave "$XDG_RUNTIME_DIR" "$CHROOT/$XDG_RUNTIME_DIR"
+sudo mount -t proc proc "$CHROOT/proc"
+
+sudo cp -a -L /etc/resolv.conf "$CHROOT/etc"
+
+# start app
+echo "press enter to start teamviewer"
+read foo
+sudo chroot "$CHROOT" su -c "/usr/local/bin/start_teamviewerd"
+sudo chroot "$CHROOT" su -c /usr/bin/teamviewer -l $USER
+sudo chroot "$CHROOT" su -c "/usr/local/bin/stop_teamviewerd"
+
+# shutdown / cleanup
+#
+sudo umount -l "$CHROOT/proc"
+sudo umount -l "$CHROOT/tmp"
+sudo umount -l "$CHROOT/home/$USER/.pulse"
+sudo umount -l "$CHROOT/var/lib/dbus"
+sudo umount -l "$CHROOT/run/lock"
+sudo umount -l "$CHROOT/run/shm"
+sudo umount -l "$CHROOT/run"
+sudo umount -l "$CHROOT/dev"
